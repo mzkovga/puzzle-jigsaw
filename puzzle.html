@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rompecabezas desde tu imagen (100–2000 piezas)</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --acc:#22d3ee; /* cyan-400 */
+      --good:#22c55e; /* green-500 */
+      --warn:#f59e0b; /* amber-500 */
+      --bad:#ef4444; /* red-500 */
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:linear-gradient(180deg,#0b1223,#0f172a 30%,#0b1223);color:var(--text)}
+    header{padding:16px 24px;border-bottom:1px solid #1f2937;background:rgba(17,24,39,.8);backdrop-filter: blur(8px);position:sticky;top:0;z-index:10}
+    h1{margin:0;font-size:clamp(18px,2.5vw,24px)}
+    main{display:grid;grid-template-columns:360px 1fr;gap:16px;max-width:1400px;margin:18px auto;padding:0 18px}
+    @media (max-width:1000px){main{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg,#0b1223,#0d1428);border:1px solid #1f2937;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .panel{padding:16px}
+    .controls label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+    .controls input[type="file"]{width:100%;padding:10px;border:1px dashed #334155;border-radius:12px;background:#0b1223;color:var(--text)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    select,button,input[type="number"]{appearance:none;border:1px solid #334155;border-radius:12px;background:#0b1223;color:var(--text);padding:10px 12px;font-size:14px}
+    button{cursor:pointer;border-color:#334155;transition:transform .05s ease, background .2s ease}
+    button:hover{background:#0e1b35}
+    button:active{transform:scale(.98)}
+    .btn-primary{border-color:transparent;background:linear-gradient(90deg,#0891b2,#06b6d4);color:black;font-weight:600}
+    .btn-danger{border-color:#7f1d1d;background:#7f1d1d}
+    .btn-ghost{background:transparent}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+    .metric{background:#0b1223;border:1px solid #1f2937;border-radius:12px;padding:10px;text-align:center}
+    .metric .k{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px}
+    .hint{font-size:12px;color:var(--muted);margin-top:8px}
+    .canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center;padding:12px}
+    canvas{max-width:100%;height:auto;border-radius:16px;background:#0a1223;border:1px solid #1f2937}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .preview{margin-top:10px;border:1px solid #1f2937;border-radius:12px;overflow:hidden}
+    .preview img{display:block;width:100%;height:auto}
+    .badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#a3e635;background:#1a2e16;border:1px solid #335d2d;padding:6px 10px;border-radius:999px}
+    .grid-select{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .grid-select button{padding:10px;border-radius:12px;border:1px solid #334155;background:#0b1223}
+    .grid-select button.active{outline:2px solid var(--acc);}
+    .footer{padding:12px 18px;color:var(--muted);text-align:center}
+    .sr-only{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧩 Rompecabezas desde tu imagen — 100 a 2000 piezas</h1>
+  </header>
+  <main>
+    <!-- Lateral de controles -->
+    <section class="card panel">
+      <div class="controls">
+        <label for="file">1) Sube una imagen</label>
+        <input id="file" type="file" accept="image/*" />
+
+        <label for="pieces">2) Elige el número de piezas</label>
+        <div class="grid-select" id="piecesGrid"></div>
+        <div class="hint">Los tamaños usan rejillas optimizadas (por ej. 100 = 10×10, 300 = 15×20).</div>
+
+        <label>3) Opciones</label>
+        <div class="row">
+          <button class="btn-primary" id="startBtn">Iniciar / Rehacer</button>
+          <button id="shuffleBtn">Mezclar</button>
+          <button id="hintBtn">Vista previa</button>
+          <button class="btn-danger" id="resetBtn">Limpiar</button>
+        </div>
+
+        <div class="metrics">
+          <div class="metric"><div>Movidas</div><div class="k" id="moves">0</div></div>
+          <div class="metric"><div>Tiempo</div><div class="k" id="time">00:00</div></div>
+          <div class="metric"><div>Progreso</div><div class="k" id="progress">0%</div></div>
+        </div>
+
+        <div class="preview" id="preview" hidden>
+          <img id="previewImg" alt="Vista previa" />
+        </div>
+
+        <p class="hint">Consejo: Puedes jugar con <strong>arrastrar y soltar</strong> o con <strong>clic-clic</strong> para intercambiar dos piezas.
+        Funciona hasta 2000 piezas en la mayoría de navegadores modernos.
+        </p>
+        <span class="badge">✔ Sin anuncios, todo en tu navegador</span>
+      </div>
+    </section>
+
+    <!-- Área principal del tablero -->
+    <section class="card panel">
+      <div class="canvas-wrap">
+        <canvas id="board" width="1000" height="700" aria-label="Tablero del rompecabezas" role="img"></canvas>
+      </div>
+      <div class="toolbar">
+        <button id="swapModeBtn" class="btn-ghost">Modo: Arrastrar o Clic‑clic</button>
+        <button id="solveBtn" class="btn-ghost">Comprobar solución</button>
+        <button id="snapBtn" class="btn-ghost">Límites ON/OFF</button>
+      </div>
+      <div class="hint">El tablero se adapta a tu imagen; para mejores resultados, usa imágenes grandes (≥1920px de ancho).</div>
+    </section>
+  </main>
+  <div class="footer">Hecho con ❤️ en HTML5 Canvas. Código libre de dependencias.</div>
+
+<script>
+(function(){
+  // --- Utilidades ---
+  const $ = sel => document.querySelector(sel);
+  const board = $('#board');
+  const ctx = board.getContext('2d');
+  const fileInput = $('#file');
+  const startBtn = $('#startBtn');
+  const shuffleBtn = $('#shuffleBtn');
+  const resetBtn = $('#resetBtn');
+  const hintBtn = $('#hintBtn');
+  const preview = $('#preview');
+  const previewImg = $('#previewImg');
+  const piecesGrid = $('#piecesGrid');
+  const movesEl = $('#moves');
+  const timeEl = $('#time');
+  const progressEl = $('#progress');
+  const swapModeBtn = $('#swapModeBtn');
+  const solveBtn = $('#solveBtn');
+  const snapBtn = $('#snapBtn');
+
+  const OPTIONS = [100,300,500,800,1000,2000];
+  const GRID_MAP = {
+    100:[10,10],
+    300:[15,20],
+    500:[20,25],
+    800:[20,40],
+    1000:[25,40],
+    2000:[40,50]
+  };
+
+  // Estado del juego
+  let img = new Image();
+  let imgLoaded = false;
+  let rows = 10, cols = 10, total = 100;
+  let tiles = []; // arreglo de índices: posición -> índice de fuente
+  let tileW = 0, tileH = 0; // tamaño de cada pieza en canvas
+  let srcTileW = 0, srcTileH = 0; // tamaño de recorte en imagen fuente
+  let dragging = null; // {index, x, y, ox, oy}
+  let hoverIndex = -1;
+  let allowDrag = true; // si false, modo clic‑clic
+  let clickSel = null; // índice seleccionado por clic
+  let showBounds = false;
+  let moves = 0;
+  let timer = null, elapsed = 0; // segundos
+
+  // Construir UI de selección de piezas
+  let selectedPieces = 100;
+  function renderPiecesGrid(){
+    piecesGrid.innerHTML = '';
+    OPTIONS.forEach(n=>{
+      const b = document.createElement('button');
+      b.textContent = n + ' piezas';
+      b.dataset.n = n;
+      if(n===selectedPieces) b.classList.add('active');
+      b.addEventListener('click',()=>{
+        selectedPieces = n;
+        document.querySelectorAll('#piecesGrid button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      piecesGrid.appendChild(b);
+    });
+  }
+  renderPiecesGrid();
+
+  // Cargar imagen del input
+  fileInput.addEventListener('change', e=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      imgLoaded = true;
+      previewImg.src = url; preview.hidden = false;
+      fitCanvasToImage();
+      draw();
+    };
+    img.onerror = ()=>alert('No se pudo cargar la imagen.');
+    img.src = url;
+  });
+
+  // Ajusta canvas manteniendo relación de aspecto
+  function fitCanvasToImage(){
+    const maxW = Math.min(1200, window.innerWidth - 32);
+    const maxH = Math.min(820, window.innerHeight - 220);
+    const rImg = img.width / img.height;
+    let w = maxW, h = Math.round(maxW / rImg);
+    if(h > maxH){ h = maxH; w = Math.round(maxH * rImg); }
+    board.width = Math.max(600, w);
+    board.height = Math.max(400, h);
+  }
+  window.addEventListener('resize', ()=>{ if(imgLoaded){ fitCanvasToImage(); computeTileSizes(); draw(); }});
+
+  // Iniciar / rehacer
+  startBtn.addEventListener('click', ()=>{
+    if(!imgLoaded){ alert('Primero sube una imagen.'); return; }
+    total = selectedPieces;
+    [rows, cols] = GRID_MAP[total] || bestGrid(total);
+    setupTiles();
+    moves = 0; updateMoves();
+    resetTimer(); startTimer();
+    draw();
+  });
+
+  // Mezclar
+  shuffleBtn.addEventListener('click', ()=>{ if(tiles.length){ shuffle(tiles); moves=0; updateMoves(); draw(); }});
+
+  // Reset total
+  resetBtn.addEventListener('click', ()=>{
+    stopTimer(); elapsed = 0; updateTime(); moves = 0; updateMoves();
+    tiles = []; draw();
+  });
+
+  // Vista previa
+  hintBtn.addEventListener('click', ()=>{ preview.hidden = !preview.hidden; });
+
+  // Cambiar modo arrastrar/clic
+  swapModeBtn.addEventListener('click', ()=>{ allowDrag = !allowDrag; swapModeBtn.textContent = allowDrag ? 'Modo: Arrastrar o Clic‑clic' : 'Modo: Solo Clic‑clic'; });
+
+  // Límites ON/OFF
+  snapBtn.addEventListener('click', ()=>{ showBounds = !showBounds; draw(); });
+
+  // Comprobar solución
+  solveBtn.addEventListener('click', ()=>{ checkSolved(true); });
+
+  // Configura piezas
+  function setupTiles(){
+    computeTileSizes();
+    const n = rows*cols;
+    tiles = Array.from({length:n}, (_,i)=>i);
+    shuffle(tiles);
+  }
+
+  function computeTileSizes(){
+    tileW = Math.floor(board.width / cols);
+    tileH = Math.floor(board.height / rows);
+    // calcular recortes fuente en función del tamaño de la imagen para evitar bordes vacíos
+    srcTileW = Math.floor(img.width / cols);
+    srcTileH = Math.floor(img.height / rows);
+  }
+
+  // Barajar
+  function shuffle(a){
+    for(let i=a.length-1;i>0;i--){ const j = (Math.random()* (i+1))|0; [a[i],a[j]] = [a[j],a[i]]; }
+  }
+
+  // Dibujo principal
+  function draw(){
+    ctx.clearRect(0,0,board.width,board.height);
+    if(!tiles.length || !imgLoaded){
+      drawPlaceholder();
+      return;
+    }
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const pos = r*cols+c;
+        const srcIndex = tiles[pos];
+        const sr = (srcIndex/cols)|0;
+        const sc = srcIndex%cols;
+        const dx = c*tileW, dy = r*tileH;
+        const sx = sc*srcTileW, sy = sr*srcTileH;
+        ctx.drawImage(img, sx, sy, srcTileW, srcTileH, dx, dy, tileW, tileH);
+        if(showBounds){
+          ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+          ctx.strokeRect(dx+0.5, dy+0.5, tileW-1, tileH-1);
+        }
+      }
+    }
+
+    // Si se arrastra, dibujar semi-transparente la pieza en movimiento
+    if(dragging){
+      const {index, x, y} = dragging;
+      const sr = (index/cols)|0, sc = index%cols;
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(img, sc*srcTileW, sr*srcTileH, srcTileW, srcTileH, x - tileW/2, y - tileH/2, tileW, tileH);
+      ctx.globalAlpha = 1;
+    }
+
+    // resaltar hover
+    if(hoverIndex>=0){
+      const hr = (hoverIndex/cols)|0, hc = hoverIndex%cols;
+      ctx.strokeStyle = 'rgba(34,211,238,0.8)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(hc*tileW+1, hr*tileH+1, tileW-2, tileH-2);
+    }
+  }
+
+  function drawPlaceholder(){
+    const msg = 'Sube una imagen y elige el número de piezas';
+    ctx.fillStyle = '#0b1223';
+    ctx.fillRect(0,0,board.width,board.height);
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'center';
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.fillText(msg, board.width/2, board.height/2);
+  }
+
+  // Interacciones
+  function posToIndex(x,y){
+    const c = Math.min(cols-1, Math.max(0, Math.floor(x / tileW)));
+    const r = Math.min(rows-1, Math.max(0, Math.floor(y / tileH)));
+    return r*cols + c;
+  }
+
+  board.addEventListener('mousedown', e=>{
+    if(!tiles.length) return;
+    const rect = board.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (board.width / rect.width);
+    const y = (e.clientY - rect.top) * (board.height / rect.height);
+    const idx = posToIndex(x,y);
+    hoverIndex = idx;
+    if(allowDrag){
+      dragging = { index: tiles[idx], from: idx, x, y };
+    } else {
+      if(clickSel===null){
+        clickSel = idx; hoverIndex = idx; draw();
+      } else {
+        if(clickSel !== idx){ swap(clickSel, idx); moves++; updateMoves(); afterMove(); }
+        clickSel = null; hoverIndex = -1; draw();
+      }
+    }
+  });
+
+  board.addEventListener('mousemove', e=>{
+    if(!tiles.length) return;
+    const rect = board.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (board.width / rect.width);
+    const y = (e.clientY - rect.top) * (board.height / rect.height);
+    hoverIndex = posToIndex(x,y);
+    if(dragging){ dragging.x = x; dragging.y = y; }
+    draw();
+  });
+
+  board.addEventListener('mouseup', e=>{
+    if(!tiles.length || !dragging) return;
+    const rect = board.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (board.width / rect.width);
+    const y = (e.clientY - rect.top) * (board.height / rect.height);
+    const to = posToIndex(x,y);
+    const from = dragging.from;
+    if(to!==from){ swap(from,to); moves++; updateMoves(); afterMove(); }
+    dragging = null; hoverIndex = -1; draw();
+  });
+
+  board.addEventListener('mouseleave', ()=>{ hoverIndex = -1; draw(); });
+
+  function swap(a,b){ [tiles[a], tiles[b]] = [tiles[b], tiles[a]]; }
+
+  function afterMove(){
+    const pct = progress();
+    progressEl.textContent = Math.round(pct*100)+'%';
+    if(pct === 1){ stopTimer(); celebrate(); }
+    draw();
+  }
+
+  function progress(){
+    if(!tiles.length) return 0;
+    let ok=0; for(let i=0;i<tiles.length;i++){ if(tiles[i]===i) ok++; }
+    return ok/tiles.length;
+  }
+
+  // Timer
+  function startTimer(){ if(timer) clearInterval(timer); timer = setInterval(()=>{ elapsed++; updateTime(); }, 1000); }
+  function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
+  function resetTimer(){ stopTimer(); elapsed = 0; updateTime(); }
+  function updateTime(){ const m = Math.floor(elapsed/60).toString().padStart(2,'0'); const s=(elapsed%60).toString().padStart(2,'0'); timeEl.textContent = `${m}:${s}`; }
+  function updateMoves(){ movesEl.textContent = moves; }
+
+  // Celebración simple
+  function celebrate(){
+    // parpadeo borde
+    let t=0; const id = setInterval(()=>{
+      showBounds = !showBounds; draw(); if(++t>10){ clearInterval(id); showBounds=false; draw(); }
+    },120);
+    setTimeout(()=>{ alert(`¡Completado!\nPiezas: ${total}\nTiempo: ${timeEl.textContent}\nMovidas: ${moves}`); }, 150);
+  }
+
+  // Elegir mejor rejilla (si no hay mapeo)
+  function bestGrid(n){
+    let best=[10,10], bestDiff=1e9;
+    for(let r=1;r<=Math.sqrt(n);r++){
+      if(n%r===0){ const c=n/r; const diff=Math.abs(c-r); if(diff<bestDiff){ best=[r,c]; bestDiff=diff; } }
+    }
+    return best;
+  }
+
+  // Teclado: barra espaciadora para mezclar
+  window.addEventListener('keydown', (e)=>{
+    if(e.code==='Space'){ e.preventDefault(); if(tiles.length){ shuffle(tiles); moves=0; updateMoves(); draw(); } }
+  });
+
+})();
+</script>
+</body>
+</html>
